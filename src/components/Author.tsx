@@ -1,25 +1,35 @@
+import React from "react";
+import { User as TUser } from "@/types";
 import Post from "@/components/post/Post";
-// import { getPosts } from "@/lib/mongo/posts";
-import { getPosts } from "@/lib/prisma/posts";
 import { Post as TPost } from "@prisma/client";
-import { notFound } from "next/navigation";
+import { getPosts } from "@/lib/prisma/posts";
 
-export default async function Page() {
-  const { posts = [], error }: { posts?: TPost[]; error?: any } =
-    await getPosts({});
+type Props = {
+  authorId: number;
+};
 
-  if (error) {
-    notFound();
-  }
+const Author = async ({ authorId }: Props) => {
+  const user: TUser = await fetch(
+    `https://jsonplaceholder.typicode.com/users/${authorId}`
+  ).then((res) => res.json());
+
+  const { posts = [] } = await getPosts({
+    where: { userId: authorId },
+    take: 10,
+  });
+
+  // const posts: TPost[] = await fetch(
+  //   `https://jsonplaceholder.typicode.com/posts/?userId=${authorId}`
+  // ).then((res) => res.json());
 
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
       <div className="space-y-2 pt-6 pb-8 md:space-y-5">
         <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 dark:text-gray-400 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14">
-          Latest
+          {user.name}
         </h1>
         <p className="text-lg leading-7 text-gray-500 dark:text-gray-400">
-          A blog created with Next.js and Tailwind.css
+          {user.username}
         </p>
       </div>
       <ul className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -30,4 +40,6 @@ export default async function Page() {
       </ul>
     </div>
   );
-}
+};
+
+export default Author;
