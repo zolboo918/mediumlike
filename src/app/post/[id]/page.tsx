@@ -17,9 +17,11 @@ export async function generateMetadata({ params: { id } }: Props) {
 
 export async function generateStaticParams() {
   const { posts } = await getPosts({ take: 100 });
-  return posts?.map((item: any) => {
-    id: item.id.toString();
-  });
+  return posts
+    ? posts.map((item: any) => {
+        id: item.id.toString();
+      })
+    : [];
 }
 
 async function Page({ params: { id } }: Props) {

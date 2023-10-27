@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import * as z from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -15,36 +15,92 @@ import {
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { Textarea } from "../ui/textarea";
+import { Post, Prisma } from "@prisma/client";
+import { addPost, editPost, removePost } from "@/app/actions/posts";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 type Props = {
-  id?: string;
+  post?: Post | null;
 };
 
 const formSchema = z.object({
   title: z
     .string({ required_error: "Гарчиг оруулна уу" })
     .max(50, "Гарчигийн урт 50 тэмдэгтээс хэтрэхгүй"),
-  content: z.string({ required_error: "Агуулга оруулна уу" }),
+  body: z.string({ required_error: "Агуулга оруулна уу" }),
 });
 
-const BlogForm = ({ id }: Props) => {
+const BlogForm = ({ post }: Props) => {
+  const route = useRouter();
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: "",
-      content: "",
+      title: post ? post.title : "",
+      body: post ? post.body : "",
     },
   });
 
+  useEffect(() => {
+    if (infoMessage) {
+      const timeout = setTimeout(() => {
+        setInfoMessage(null);
+      }, 1000);
+      return () => {
+        clearTimeout(timeout);
+      };
+    }
+  }, [infoMessage]);
+
+  const { data: session } = useSession();
+
+  if (!session) {
+    return "Та нэвтэрнэ үү";
+  }
+
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log("values", values);
+    if (post) {
+      editPost(post.id, values)
+        .then(() => {
+          setInfoMessage("Амжилттай");
+        })
+        .catch(() => {
+          setInfoMessage("Амжилтгүй");
+        });
+    } else {
+      addPost({ ...values, userId: parseInt(session?.user.id) })
+        .then(({ post }) => {
+          setInfoMessage("Амжилттай");
+          route.push(`/post/edit/${post?.id}`);
+        })
+        .catch(() => {
+          setInfoMessage("Амжилтгүй");
+        });
+    }
+  };
+
+  const onDelete = () => {
+    if (post) {
+      if (confirm("Та устгахдаа итгэлтэй байна уу?")) {
+        removePost(post?.id)
+          .then(() => {
+            route.push("/profile");
+          })
+          .catch(() => setInfoMessage("Алдаа гарлаа"));
+      }
+    }
   };
 
   return (
     <div>
       <h1 className="text-xl font-bold leading-9 tracking-tight text-gray-500 dark:text-gray-500 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14 mb-5">
-        {id ? "Блог засах" : "Блог бичих"}
+        {post ? "Блог засах" : "Блог бичих"}
       </h1>
+      {infoMessage && (
+        <div className="text-md my-4 text-sky-400">{infoMessage}</div>
+      )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           <FormField
@@ -65,7 +121,7 @@ const BlogForm = ({ id }: Props) => {
           />
           <FormField
             control={form.control}
-            name="content"
+            name="body"
             render={({ field }) => (
               <FormItem>
                 <FormLabel>Агуулга</FormLabel>
@@ -76,9 +132,21 @@ const BlogForm = ({ id }: Props) => {
               </FormItem>
             )}
           />
-          <Button type="submit" className="float-right">
-            Хадгалах
-          </Button>
+          <div>
+            {post && (
+              <Button
+                type="button"
+                className="float-left"
+                variant={"destructive"}
+                onClick={onDelete}
+              >
+                Устгах
+              </Button>
+            )}
+            <Button type="submit" className="float-right">
+              Хадгалах
+            </Button>
+          </div>
         </form>
       </Form>
     </div>
