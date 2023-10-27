@@ -10,6 +10,7 @@ export const nextOptions = {
       clientSecret: process.env.DISCORD_SECRET!,
     }),
   ],
+  secret: process.env.DISCORD_SECRET,
   adapter: PrismaAdapter(client),
   pages: { signIn: "/signin" },
   callbacks: {
