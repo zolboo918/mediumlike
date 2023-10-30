@@ -4,7 +4,8 @@ import prisma from "@/lib/prisma";
 export async function getPosts(args: Prisma.PostFindManyArgs) {
   try {
     const result = await prisma.post.findMany(args);
-    return { posts: result };
+    const count = await prisma.post.count();
+    return { posts: result, count };
   } catch (error) {
     return { error };
   }

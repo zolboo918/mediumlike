@@ -19,6 +19,7 @@ import { Post, Prisma } from "@prisma/client";
 import { addPost, editPost, removePost } from "@/app/actions/posts";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import Editor from "@/components/common/Editor";
 
 type Props = {
   post?: Post | null;
@@ -29,17 +30,20 @@ const formSchema = z.object({
     .string({ required_error: "Гарчиг оруулна уу" })
     .max(50, "Гарчигийн урт 50 тэмдэгтээс хэтрэхгүй"),
   body: z.string({ required_error: "Агуулга оруулна уу" }),
+  description: z.string(),
 });
 
 const BlogForm = ({ post }: Props) => {
   const route = useRouter();
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [body, setBody] = useState(post?.body || "");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       title: post ? post.title : "",
       body: post ? post.body : "",
+      description: post?.description || "",
     },
   });
 
@@ -61,8 +65,9 @@ const BlogForm = ({ post }: Props) => {
   }
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
+    const param = { ...values, body, userId: parseInt(session?.user.id) };
     if (post) {
-      editPost(post.id, values)
+      editPost(post.id, param)
         .then(() => {
           setInfoMessage("Амжилттай");
         })
@@ -70,7 +75,7 @@ const BlogForm = ({ post }: Props) => {
           setInfoMessage("Амжилтгүй");
         });
     } else {
-      addPost({ ...values, userId: parseInt(session?.user.id) })
+      addPost(param)
         .then(({ post }) => {
           setInfoMessage("Амжилттай");
           route.push(`/post/edit/${post?.id}`);
@@ -121,17 +126,18 @@ const BlogForm = ({ post }: Props) => {
           />
           <FormField
             control={form.control}
-            name="body"
+            name="description"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Агуулга</FormLabel>
+                <FormLabel>Хураангуй</FormLabel>
                 <FormControl>
-                  <Textarea {...field} className="h-96" />
+                  <Textarea {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
+          <Editor body={body} setBody={setBody} />
           <div>
             {post && (
               <Button

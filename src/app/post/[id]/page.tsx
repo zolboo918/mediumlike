@@ -1,7 +1,5 @@
 import { getPostById, getPosts } from "@/lib/prisma/posts";
-import { Post } from "@/types";
-import { notFound } from "next/navigation";
-import { FunctionComponent } from "react";
+import Markdown from "react-markdown";
 
 interface Props {
   params: { id: string };
@@ -31,7 +29,9 @@ async function Page({ params: { id } }: Props) {
   return (
     <div>
       <h1 className="text-2xl uppercase pb-2">{post?.title}</h1>
-      <article>{post?.body}</article>
+      <h2 className="">{post?.description}</h2>
+      {/* <article>{post?.body}</article> */}
+      <Markdown>{post?.body}</Markdown>
     </div>
   );
 }
