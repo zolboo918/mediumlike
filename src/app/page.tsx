@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 
 export default async function Page() {
   const { posts = [], error }: { posts?: TPost[]; error?: any } =
-    await getPosts({});
+    await getPosts({ where: { published: true } });
 
   if (error) {
     notFound();

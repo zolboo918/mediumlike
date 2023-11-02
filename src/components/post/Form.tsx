@@ -1,8 +1,10 @@
 "use client";
-import React, { useEffect, useState } from "react";
+
+import { FunctionComponent, useEffect, useState } from "react";
 import * as z from "zod";
-import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -11,100 +13,121 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../ui/form";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { Textarea } from "../ui/textarea";
-import { Post, Prisma } from "@prisma/client";
-import { addPost, editPost, removePost } from "@/app/actions/posts";
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Post } from "@prisma/client";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import Editor from "@/components/common/Editor";
-
-type Props = {
-  post?: Post | null;
-};
+import Editor from "../common/Editor";
+import { Label } from "../ui/label";
+import Image from "next/image";
+import { removePost } from "@/app/actions/posts";
 
 const formSchema = z.object({
   title: z
-    .string({ required_error: "Гарчиг оруулна уу" })
-    .max(50, "Гарчигийн урт 50 тэмдэгтээс хэтрэхгүй"),
-  body: z.string({ required_error: "Агуулга оруулна уу" }),
+    .string({
+      required_error: "Гарчиг оруулна уу",
+    })
+    .max(50),
   description: z.string(),
+  published: z.boolean(),
 });
 
-const BlogForm = ({ post }: Props) => {
-  const route = useRouter();
+interface BlogFormProps {
+  post?: Post | null;
+}
+
+const BlogForm: FunctionComponent<BlogFormProps> = ({ post }) => {
+  const router = useRouter();
+
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [body, setBody] = useState(post?.body || "");
+  const route = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: post ? post.title : "",
-      body: post ? post.body : "",
+      title: post?.title,
       description: post?.description || "",
+      published: post?.published || false,
     },
   });
 
   useEffect(() => {
-    if (infoMessage) {
-      const timeout = setTimeout(() => {
-        setInfoMessage(null);
-      }, 1000);
-      return () => {
-        clearTimeout(timeout);
-      };
-    }
+    if (!infoMessage) return;
+
+    const timeout = setTimeout(() => {
+      setInfoMessage(null);
+    }, 2000);
+
+    return () => {
+      clearTimeout(timeout);
+    };
   }, [infoMessage]);
 
-  const { data: session } = useSession();
+  function onSubmit(values: z.infer<typeof formSchema>) {
+    // Do something with the form values.
+    const finalValues = {
+      ...values,
+      publishedAt: values.published ? new Date() : null,
+      body,
+    };
 
-  if (!session) {
-    return "Та нэвтэрнэ үү";
-  }
-
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    const param = { ...values, body, userId: parseInt(session?.user.id) };
     if (post) {
-      editPost(post.id, param)
+      // Update
+      fetch(`/api/post/${post.id}`, {
+        method: "PUT",
+        body: JSON.stringify(finalValues),
+      })
         .then(() => {
-          setInfoMessage("Амжилттай");
+          setInfoMessage("Амжилттай хадгаллаа");
         })
-        .catch(() => {
-          setInfoMessage("Амжилтгүй");
+        .catch((error) => {
+          setInfoMessage(error.message);
         });
     } else {
-      addPost(param)
-        .then(({ post }) => {
-          setInfoMessage("Амжилттай");
-          route.push(`/post/edit/${post?.id}`);
+      // Create
+      fetch("/api/post", {
+        method: "POST",
+        body: JSON.stringify(finalValues),
+      })
+        .then((res) => res.json())
+        .then(({ post, error }) => {
+          console.log("post", post);
+          setInfoMessage("Амжилттай хадгаллаа");
+
+          if (error) {
+            throw new Error(error.message);
+          }
+
+          router.push(`/post/edit/${post?.id}`);
         })
-        .catch(() => {
-          setInfoMessage("Амжилтгүй");
+        .catch((error) => {
+          setInfoMessage(error.message);
         });
     }
-  };
+  }
 
-  const onDelete = () => {
+  function onDelete() {
     if (post) {
       if (confirm("Та устгахдаа итгэлтэй байна уу?")) {
-        removePost(post?.id)
+        fetch(`/api/post/${post.id}`, { method: "DELETE" })
+          .then((res) => res.json())
           .then(() => {
             route.push("/profile");
           })
           .catch(() => setInfoMessage("Алдаа гарлаа"));
       }
     }
-  };
-
+  }
   return (
-    <div>
-      <h1 className="text-xl font-bold leading-9 tracking-tight text-gray-500 dark:text-gray-500 sm:text-4xl sm:leading-10 md:text-6xl md:leading-14 mb-5">
+    <>
+      <h1 className="text-3xl font-extrabold leading-9 tracking-tight text-gray-900 dark:text-gray-100 sm:text-4xl sm:leading-10 md:text-3xl md:leading-14">
         {post ? "Блог засах" : "Блог бичих"}
       </h1>
       {infoMessage && (
-        <div className="text-md my-4 text-sky-400">{infoMessage}</div>
+        <div className="py-4 text-md text-sky-400">{infoMessage}</div>
       )}
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -118,7 +141,7 @@ const BlogForm = ({ post }: Props) => {
                   <Input {...field} />
                 </FormControl>
                 <FormDescription>
-                  Гарчиг ойлгомжтой байх хэрэгтэй
+                  Гарчиг ойлгомжтой, товч, тодорхой байх хэрэгтэй.
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -137,25 +160,40 @@ const BlogForm = ({ post }: Props) => {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="published"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>Нийтлэх эсэх</FormLabel>
+                </div>
+              </FormItem>
+            )}
+          />
           <Editor body={body} setBody={setBody} />
           <div>
-            {post && (
-              <Button
-                type="button"
-                className="float-left"
-                variant={"destructive"}
-                onClick={onDelete}
-              >
-                Устгах
-              </Button>
-            )}
-            <Button type="submit" className="float-right">
+            <Button
+              className="float-left"
+              type="button"
+              variant={"destructive"}
+              onClick={onDelete}
+            >
+              Устгах
+            </Button>
+            <Button className="float-right" type="submit">
               Хадгалах
             </Button>
           </div>
         </form>
       </Form>
-    </div>
+    </>
   );
 };
 
